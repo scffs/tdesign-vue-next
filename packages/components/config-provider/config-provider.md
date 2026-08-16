@@ -54,6 +54,37 @@ Vue.createApp({}).use(TDesign)
 }
 ```
 
+### 浏览器引入方式下使用国际化
+
+- 如需在浏览器引入方式下使用国际化，可通过 `t-config-provider` 的 `global-config` 配置语言包。默认语言为中文；下面示例演示在原生 JS 项目中切换为英文：
+
+```html
+<div id="app">
+  <t-config-provider :global-config="globalConfig">
+    <t-space direction="vertical">
+      <t-date-picker></t-date-picker>
+      <t-pagination :total="36"></t-pagination>
+    </t-space>
+  </t-config-provider>
+</div>
+
+<script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+<link rel="stylesheet" href="https://unpkg.com/tdesign-vue-next/dist/tdesign.min.css" />
+<script src="https://unpkg.com/tdesign-vue-next/dist/tdesign.min.js"></script>
+<script type="module">
+  import enConfig from 'https://unpkg.com/tdesign-vue-next/es/locale/en_US.mjs?module';
+
+  const app = window.Vue.createApp({
+    data() {
+      return {
+        globalConfig: enConfig,
+      };
+    },
+  });
+
+  app.use(window.TDesign).mount('#app');
+</script>
+```
 
 ## API
 
@@ -87,6 +118,7 @@ image | Object | - | 图片全局配置。TS 类型：`ImageConfig` | N
 imageViewer | Object | - | 图片预览器全局配置。TS 类型：`ImageViewerConfig` | N
 input | Object | - | 输入框组件全局配置。TS 类型：`InputConfig` | N
 list | Object | - | 列表组件全局配置。TS 类型：`ListConfig` | N
+loading | Object | - | 加载中组件全局配置。TS 类型：`LoadingConfig` | N
 message | Object | - | 消息组件全局配置。TS 类型：`MessageConfig` | N
 pagination | Object | - | 分页组件全局配置。TS 类型：`PaginationConfig` | N
 popconfirm | Object | - | 气泡确认框全局配置。TS 类型：`PopconfirmConfig` | N
@@ -201,6 +233,8 @@ closeOnEscKeydown | Boolean | true | 按下 ESC 时是否触发对话框关闭�
 closeOnOverlayClick | Boolean | true | 点击蒙层时是否触发关闭事件 | N
 confirm | Object | - | 确认按钮风格。TS 类型：`string \| ButtonProps` | N
 confirmBtnTheme | Object | - | 确认按钮主题色，即 Dialog 的 `theme` 和 确认按钮的 `theme` 映射关系。示例：{ danger: 'danger' }。TS 类型：`{ default: string; info: string; warning: string; danger: string; success: string; }` | N
+placement | String | top | 全局配置的对话框位置，垂直水平居中显示 和 靠近顶部（top:20%）显示。可选项：top/center | N
+zIndex | Number | - | 对话框层级，默认为 2500 | N
 
 ### DrawerConfig
 
@@ -268,6 +302,12 @@ placeholder | String | - | 语言配置，“请输入”占位符描述文本 |
 -- | -- | -- | -- | --
 loadingMoreText | String | - | 语言配置，'点击加载更多' 描述文本 | N
 loadingText | String | - | 语言配置，'正在加载中，请稍后' 描述文本 | N
+
+### LoadingConfig
+
+名称 | 类型 | 默认值 | 描述 | 必传
+-- | -- | -- | -- | --
+`LoadingProps` | \- | - | 继承 `LoadingProps` 中的全部属性 | N
 
 ### MessageConfig
 

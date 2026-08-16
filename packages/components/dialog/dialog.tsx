@@ -10,7 +10,7 @@ import {
   Teleport,
   ComponentPublicInstance,
 } from 'vue';
-import { DialogCloseContext } from './type';
+import { DialogCloseContext, TdDialogProps } from './type';
 import props from './props';
 import { useConfig, useTeleport, usePrefixClass, usePopupManager, useDestroyOnClose } from '@tdesign/shared-hooks';
 import { useSameTarget } from './hooks';
@@ -47,10 +47,10 @@ export default defineComponent({
     const classPrefix = usePrefixClass();
     const dialogCardRef = ref<ComponentPublicInstance<{ resetPosition: () => void }>>(null);
     const { globalConfig } = useConfig('dialog');
-    const confirmBtnAction = (context: { e: MouseEvent }) => {
+    const confirmBtnAction: TdDialogProps['onConfirm'] = (context) => {
       props.onConfirm?.(context);
     };
-    const cancelBtnAction = (context: { e: MouseEvent }) => {
+    const cancelBtnAction: TdDialogProps['onCancel'] = (context) => {
       props.onCancel?.(context);
       emitCloseEvent({ e: context.e, trigger: 'cancel' });
     };
@@ -65,6 +65,8 @@ export default defineComponent({
     const isModeLess = computed(() => props.mode === 'modeless');
     // 是否全屏对话框
     const isFullScreen = computed(() => props.mode === 'full-screen');
+    // 对话框位置，支持全局配置，优先级：组件属性 > 全局配置
+    const placement = computed(() => props.placement ?? globalConfig.value.placement);
     const computedVisible = computed(() => props.visible);
     const maskClass = computed(() => [
       `${COMPONENT_NAME.value}__mask`,
@@ -76,7 +78,7 @@ export default defineComponent({
         return [
           `${COMPONENT_NAME.value}__position`,
           !!props.top && `${COMPONENT_NAME.value}--top`,
-          `${props.placement && !props.top ? `${COMPONENT_NAME.value}--${props.placement}` : ''}`,
+          `${placement.value && !props.top ? `${COMPONENT_NAME.value}--${placement.value}` : ''}`,
         ];
       }
       return [];
@@ -102,12 +104,15 @@ export default defineComponent({
     });
     /**是否已经第一次渲染，懒加载判断 */
     const isMounted = ref(false);
+    /** 控制弹窗主体的挂载，关闭时需保留至离场动画结束，避免缩放动画无法触发 */
+    const cardVisible = ref(!props.lazy || props.visible);
 
     watch(
       () => props.visible,
       (value) => {
         if (value) {
           isMounted.value = true;
+          cardVisible.value = true;
           if ((isModal.value && !props.showInAttachedElement) || isFullScreen.value) {
             if (props.preventScrollThrough) {
               document.body.appendChild(styleEl.value);
@@ -159,6 +164,8 @@ export default defineComponent({
       }
     };
     const keyboardEvent = (e: KeyboardEvent) => {
+      // 中文输入法组合态下按 ESC 仅用于取消候选词，不应关闭对话框
+      if (e.code === 'Escape' && e.isComposing) return;
       if (e.code === 'Escape' && isTopInteractivePopup()) {
         props.onEscKeydown?.({ e });
         // 根据closeOnEscKeydown判断按下ESC时是否触发close事件
@@ -201,6 +208,7 @@ export default defineComponent({
 
     // 关闭弹窗动画结束时事件
     const afterLeave = () => {
+      cardVisible.value = !props.destroyOnClose;
       dialogCardRef.value?.resetPosition?.();
       props.onClosed?.();
     };
@@ -235,15 +243,17 @@ export default defineComponent({
             onMousedown={onMousedown}
             onMouseup={onMouseup}
           >
-            <TDialogCard
-              ref={dialogCardRef}
-              theme={theme}
-              {...otherProps}
-              v-slots={context.slots}
-              onConfirm={confirmBtnAction}
-              onCancel={cancelBtnAction}
-              onCloseBtnClick={closeBtnAction}
-            />
+            {cardVisible.value && (
+              <TDialogCard
+                ref={dialogCardRef}
+                theme={theme}
+                {...otherProps}
+                v-slots={context.slots}
+                onConfirm={confirmBtnAction}
+                onCancel={cancelBtnAction}
+                onCloseBtnClick={closeBtnAction}
+              />
+            )}
           </div>
         </div>
       );

@@ -1,5 +1,5 @@
 import { computed, defineComponent, toRefs, h, ref, onMounted, getCurrentInstance } from 'vue';
-import { get, omit } from 'lodash-es';
+import { cloneDeep, get, isEqual, omit, set } from 'lodash-es';
 import baseTableProps from './base-table-props';
 import primaryTableProps from './primary-table-props';
 import BaseTable from './base-table';
@@ -223,10 +223,21 @@ export default defineComponent({
     });
 
     const onEditableCellChange: EditableCellProps['onChange'] = (params) => {
+      const rowKey = props.rowKey || 'id';
+      const sourceRowValue = get(params.row, rowKey);
+      const colKey = params.col.colKey;
+      const valueBeforeRowEdit = cloneDeep(get(params.row, colKey));
       props.onRowEdit?.(params);
-      const rowValue = get(params.editedRow, props.rowKey || 'id');
+      const sourceRow = props.data.find((row) => get(row, rowKey) === sourceRowValue);
+      const valueAfterRowEdit = get(params.row, colKey);
+      // 未主动修改 row 时，仅保留内部编辑态数据，避免取消编辑后原始数据被污染。
+      // TODO: 受控更新机制替代对 row 的直接修改
+      if (sourceRow && sourceRow !== params.row && !isEqual(valueBeforeRowEdit, valueAfterRowEdit)) {
+        set(sourceRow, colKey, valueAfterRowEdit);
+      }
+      const rowValue = get(params.editedRow, rowKey);
       onUpdateEditedCell(rowValue, params.row, {
-        [params.col.colKey]: params.value,
+        [colKey]: params.value,
       });
     };
 
@@ -296,13 +307,14 @@ export default defineComponent({
               onRuleChange,
               onEditableChange: onPrimaryTableCellEditChange,
             };
+            const rowValue = get(p.row, props.rowKey || 'id');
             if (props.editableRowKeys) {
-              const rowValue = get(p.row, props.rowKey || 'id');
               cellProps.editable = editableKeysMap.value[rowValue] || false;
-              const key = [rowValue, p.col.colKey].join('__');
-              const errorList = errorListMap.value?.[key];
-              errorList && (cellProps.errors = errorList);
             }
+            // 恢复校验错误信息：行编辑与单元格编辑（含 keepEditMode + 虚拟滚动重新挂载）场景均需要
+            const errorListKey = [rowValue, p.col.colKey].join('__');
+            const errorList = errorListMap.value?.[errorListKey];
+            errorList && (cellProps.errors = errorList);
             if (props.editableCellState) {
               cellProps.readonly = !props.editableCellState(p);
             }
@@ -339,7 +351,7 @@ export default defineComponent({
     });
 
     const onInnerPageChange = (pageInfo: PageInfo, newData: Array<TableRowData>) => {
-      innerPagination.value = { ...innerPagination.value, ...pageInfo };
+      innerPagination.value = Object.assign({}, innerPagination.value, pageInfo);
       currentPaginateData.value = newData;
       props.onPageChange?.(pageInfo, newData);
       const changeParams: Parameters<TdPrimaryTableProps['onChange']> = [
